@@ -4,7 +4,7 @@ import Dashboard from "@/pages/Dashboard";
 import Staff from "@/pages/Staff";
 import Tasks from "@/pages/Tasks";
 import Chat from "@/pages/Chat";
-import Admin from "@/pages/Admin";
+import Admin from "@/pages/Admin"; // <--- Import
 
 export default function App() {
   return (
@@ -15,7 +15,7 @@ export default function App() {
           <Route path="staff" element={<Staff />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="chat" element={<Chat />} />
-          <Route path="admin" element={<Admin />} />
+          <Route path="admin" element={<Admin />} /> {/* <--- Route */}
         </Route>
       </Routes>
     </BrowserRouter>
