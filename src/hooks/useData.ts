@@ -33,7 +33,7 @@ export function useTasks() {
   return { tasks, loading, refresh: fetchTasks };
 }
 
-// --- CHAT HOOK (FIXED) ---
+// --- CHAT HOOK (SELF-HEALING) ---
 export function useChat() {
   const [messages, setMessages] = useState<any[]>([]);
   
@@ -49,52 +49,43 @@ export function useChat() {
 
   useEffect(() => {
     fetchMessages();
-    
-    // Realtime Listener
     const channel = supabase.channel('public:messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        console.log("New Message Received:", payload);
-        fetchMessages();
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => fetchMessages())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   const sendMessage = async (text: string) => {
     try {
-      // 1. Try to find 'Admin User'
-      let userId;
-      const { data: admin } = await supabase.from('profiles').select('id').eq('full_name', 'Admin User').single();
-      
-      if (admin) {
-        userId = admin.id;
-      } else {
-        // 2. Fallback: Use the first user found in the database (Safety Net)
-        const { data: anyUser } = await supabase.from('profiles').select('id').limit(1).single();
-        userId = anyUser?.id;
+      // 1. Try to find ANY existing user
+      let { data: user } = await supabase.from('profiles').select('id').limit(1).single();
+
+      // 2. If NO user exists, CREATE one automatically
+      if (!user) {
+        console.log("Database empty. Creating Demo User...");
+        const { data: newUser, error: createError } = await supabase.from('profiles').insert([{
+            full_name: 'Demo User',
+            email: 'demo@staffnet.com',
+            avatar_url: 'https://i.pravatar.cc/150?u=demo'
+        }]).select().single();
+        
+        if (createError) throw createError;
+        user = newUser;
       }
 
-      if (!userId) {
-        alert("Error: No users found in database to send message as.");
-        return;
-      }
-
-      // 3. Insert Message
+      // 3. Send Message
       const { error } = await supabase.from('messages').insert([{ 
         content: text, 
-        sender_id: userId, 
+        sender_id: user.id, 
         channel_id: 'general' 
       }]);
 
       if (error) throw error;
+      fetchMessages(); // Refresh UI immediately
 
-      // 4. Refresh immediately (Optimistic update)
-      fetchMessages();
-
-    } catch (err) {
-      console.error("Send Message Error:", err);
-      alert("Failed to send message. Check console.");
+    } catch (err: any) {
+      console.error("Chat Error:", err);
+      alert(`Error: ${err.message || "Check console details"}`);
     }
   };
 
