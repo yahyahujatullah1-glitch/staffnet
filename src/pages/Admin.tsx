@@ -1,30 +1,70 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { Shield, Activity } from "lucide-react";
+import { useChat } from "@/hooks/useData";
+import { useEffect, useRef, useState } from "react";
+import { Send, Image as ImageIcon } from "lucide-react";
 
-export default function Admin() {
-  const [logs, setLogs] = useState<any[]>([]);
+export default function Chat() {
+  const { messages, sendMessage } = useChat();
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom
   useEffect(() => {
-    const fetchData = async () => {
-      const { data } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(20);
-      if(data) setLogs(data);
-    };
-    fetchData();
-  }, []);
+    if(scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = () => {
+    if(!input.trim()) return;
+    sendMessage(input);
+    setInput("");
+  };
 
   return (
-    <div className="space-y-8">
-      <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Shield className="text-primary"/> Admin Console</h2>
-      <div className="bg-black/40 border border-border rounded-xl p-4 flex flex-col h-96">
-        <h3 className="font-bold text-gray-400 mb-4 flex items-center gap-2"><Activity size={16}/> System Logs</h3>
-        <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs">
-          {logs.map(log => (
-            <div key={log.id} className="border-b border-border/50 pb-2">
-              <span className="text-green-500">[{new Date(log.created_at).toLocaleTimeString()}]</span>
-              <span className="text-gray-300 ml-2">{log.action}</span>
+    <div className="flex flex-col h-[calc(100vh-6rem)] bg-surface border border-border rounded-2xl overflow-hidden shadow-2xl">
+      <div className="flex flex-1 min-h-0">
+        {/* Sidebar (Desktop) */}
+        <div className="w-72 border-r border-border bg-background/50 hidden md:block p-4">
+          <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-xl">
+            <img src="https://i.pravatar.cc/150?u=admin" className="h-10 w-10 rounded-full" />
+            <div><p className="font-bold text-white text-sm">General Chat</p><p className="text-xs text-primary">Online</p></div>
+          </div>
+        </div>
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col bg-background/30 relative">
+          
+          {/* Messages List */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.length === 0 && <div className="text-center text-gray-500 mt-10">No messages yet. Start chatting!</div>}
+            
+            {messages.map((m, idx) => {
+              const isMe = m.profiles?.full_name === 'Admin User' || m.profiles?.full_name === 'You';
+              return (
+                <div key={idx} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
+                  <img src={m.profiles?.avatar_url} className="h-8 w-8 rounded-full border border-border" />
+                  <div className={`max-w-[75%] p-3 rounded-2xl text-sm ${isMe ? 'bg-primary text-white rounded-tr-none' : 'bg-surface border border-border text-gray-200 rounded-tl-none'}`}>
+                    {m.content}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Input Area (Fixed Bottom) */}
+          <div className="p-3 bg-surface border-t border-border shrink-0">
+            <div className="flex gap-2 items-center bg-background border border-border rounded-xl p-2 px-4 focus-within:border-primary transition-colors">
+              <button className="text-gray-500 hover:text-primary"><ImageIcon size={20} /></button>
+              <input 
+                value={input} 
+                onChange={(e) => setInput(e.target.value)} 
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()} 
+                className="flex-1 bg-transparent border-none focus:ring-0 text-white placeholder:text-gray-600 outline-none" 
+                placeholder="Type a message..." 
+              />
+              <button onClick={handleSend} className="bg-primary hover:bg-primary-hover text-white p-2 rounded-lg"><Send size={18} /></button>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>
