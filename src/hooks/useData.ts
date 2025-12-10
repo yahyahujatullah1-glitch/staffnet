@@ -8,7 +8,6 @@ export function useStaff() {
 
   const fetchStaff = async () => {
     const { data, error } = await supabase.from('profiles').select('*, roles(name)').order('created_at', { ascending: false });
-    if (error) console.error("Staff Error:", error);
     if (data) setStaff(data);
     setLoading(false);
   };
@@ -24,7 +23,6 @@ export function useTasks() {
 
   const fetchTasks = async () => {
     const { data, error } = await supabase.from('tasks').select('*, profiles!assigned_to(full_name, avatar_url)').order('created_at', { ascending: false });
-    if (error) console.error("Tasks Error:", error);
     if (data) setTasks(data);
     setLoading(false);
   };
@@ -33,7 +31,7 @@ export function useTasks() {
   return { tasks, loading, refresh: fetchTasks };
 }
 
-// --- CHAT HOOK (ROBUST) ---
+// --- CHAT HOOK (DEBUG MODE) ---
 export function useChat() {
   const [messages, setMessages] = useState<any[]>([]);
   
@@ -49,68 +47,49 @@ export function useChat() {
 
   useEffect(() => {
     fetchMessages();
-
-    // Realtime Listener
     const channel = supabase.channel('public:messages')
-      .on(
-        'postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'messages' }, 
-        (payload) => {
-          console.log("New message received:", payload);
-          fetchMessages();
-        }
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => fetchMessages())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   const sendMessage = async (text: string) => {
     try {
-      // 1. OPTIMISTIC UPDATE (Show immediately)
-      const tempId = Date.now();
-      const tempMessage = {
-        id: tempId,
-        content: text,
-        sender_id: 'temp',
-        created_at: new Date().toISOString(),
-        profiles: {
-            full_name: 'Admin User',
-            avatar_url: 'https://i.pravatar.cc/150?u=admin'
-        }
-      };
-      setMessages((prev) => [...prev, tempMessage]);
+      // 1. Find the Admin User ID
+      let { data: user, error: userError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('full_name', 'Admin User')
+        .single();
 
-      // 2. Get Real User ID
-      let { data: user } = await supabase.from('profiles').select('id').eq('full_name', 'Admin User').single();
-      
-      // Self-healing: Create user if missing
+      // If user missing, try to fetch ANY user
       if (!user) {
-        const { data: anyUser } = await supabase.from('profiles').select('id').limit(1).single();
-        user = anyUser;
+         const { data: anyUser } = await supabase.from('profiles').select('id').limit(1).single();
+         user = anyUser;
       }
+
       if (!user) {
-        // Create Admin if database is totally empty
-        const { data: newUser } = await supabase.from('profiles').insert([{
-            full_name: 'Admin User',
-            email: 'admin@staffnet.com',
-            avatar_url: 'https://i.pravatar.cc/150?u=admin'
-        }]).select().single();
-        user = newUser;
+        alert("DATABASE ERROR: No 'Admin User' found in profiles table. Did you run the SQL script?");
+        return;
       }
 
-      // 3. Send to Database
-      if (user) {
-        const { error } = await supabase.from('messages').insert([{ 
-            content: text, 
-            sender_id: user.id, 
-            channel_id: 'general' 
-        }]);
-        if (error) throw error;
+      // 2. Insert Message
+      const { error: msgError } = await supabase.from('messages').insert([{ 
+        content: text, 
+        sender_id: user.id, 
+        channel_id: 'general' 
+      }]);
+
+      if (msgError) {
+        alert(`SEND ERROR: ${msgError.message}`);
+        console.error(msgError);
+      } else {
+        // Success - Refresh UI
+        fetchMessages();
       }
 
-    } catch (err) {
-      console.error("Send Error:", err);
+    } catch (err: any) {
+      alert(`CRITICAL ERROR: ${err.message}`);
     }
   };
 
