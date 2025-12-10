@@ -8,6 +8,7 @@ export function useStaff() {
 
   const fetchStaff = async () => {
     const { data, error } = await supabase.from('profiles').select('*, roles(name)').order('created_at', { ascending: false });
+    if (error) console.error("Staff Error:", error);
     if (data) setStaff(data);
     setLoading(false);
   };
@@ -23,6 +24,7 @@ export function useTasks() {
 
   const fetchTasks = async () => {
     const { data, error } = await supabase.from('tasks').select('*, profiles!assigned_to(full_name, avatar_url)').order('created_at', { ascending: false });
+    if (error) console.error("Tasks Error:", error);
     if (data) setTasks(data);
     setLoading(false);
   };
@@ -31,7 +33,7 @@ export function useTasks() {
   return { tasks, loading, refresh: fetchTasks };
 }
 
-// --- CHAT HOOK (DEBUG MODE) ---
+// --- CHAT HOOK (SELF-HEALING) ---
 export function useChat() {
   const [messages, setMessages] = useState<any[]>([]);
   
@@ -48,48 +50,69 @@ export function useChat() {
   useEffect(() => {
     fetchMessages();
     const channel = supabase.channel('public:messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => fetchMessages())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        console.log("New message received:", payload);
+        fetchMessages();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   const sendMessage = async (text: string) => {
     try {
-      // 1. Find the Admin User ID
-      let { data: user, error: userError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('full_name', 'Admin User')
-        .single();
+      // 1. OPTIMISTIC UPDATE (Show immediately)
+      const tempId = Date.now();
+      const tempMessage = {
+        id: tempId,
+        content: text,
+        sender_id: 'temp',
+        created_at: new Date().toISOString(),
+        profiles: {
+            full_name: 'Admin User',
+            avatar_url: 'https://i.pravatar.cc/150?u=admin'
+        }
+      };
+      setMessages((prev) => [...prev, tempMessage]);
 
-      // If user missing, try to fetch ANY user
-      if (!user) {
-         const { data: anyUser } = await supabase.from('profiles').select('id').limit(1).single();
-         user = anyUser;
+      // 2. FIND USER (Self-Healing Logic)
+      let userId;
+      
+      // A. Try finding 'Admin User'
+      let { data: user } = await supabase.from('profiles').select('id').eq('full_name', 'Admin User').single();
+      
+      if (user) {
+        userId = user.id;
+      } else {
+        // B. Fallback: Find ANY user
+        const { data: anyUser } = await supabase.from('profiles').select('id').limit(1).single();
+        if (anyUser) userId = anyUser.id;
       }
 
-      if (!user) {
-        alert("DATABASE ERROR: No 'Admin User' found in profiles table. Did you run the SQL script?");
-        return;
+      // C. Emergency: Create User if DB is empty
+      if (!userId) {
+        console.log("Creating Emergency User...");
+        const { data: newUser, error: createError } = await supabase.from('profiles').insert([{
+            full_name: 'Admin User',
+            email: 'admin@staffnet.com',
+            avatar_url: 'https://i.pravatar.cc/150?u=admin'
+        }]).select().single();
+        
+        if (createError) throw createError;
+        userId = newUser.id;
       }
 
-      // 2. Insert Message
-      const { error: msgError } = await supabase.from('messages').insert([{ 
-        content: text, 
-        sender_id: user.id, 
-        channel_id: 'general' 
+      // 3. SEND MESSAGE
+      const { error } = await supabase.from('messages').insert([{ 
+          content: text, 
+          sender_id: userId, 
+          channel_id: 'general' 
       }]);
 
-      if (msgError) {
-        alert(`SEND ERROR: ${msgError.message}`);
-        console.error(msgError);
-      } else {
-        // Success - Refresh UI
-        fetchMessages();
-      }
+      if (error) throw error;
 
     } catch (err: any) {
-      alert(`CRITICAL ERROR: ${err.message}`);
+      console.error("Send Error:", err);
+      alert(`Error: ${err.message}`);
     }
   };
 
