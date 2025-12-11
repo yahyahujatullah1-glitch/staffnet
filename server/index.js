@@ -8,8 +8,8 @@ app.use(cors());
 app.use(express.json());
 
 // --- 1. CONNECT TO MONGODB ---
-// 👇 REPLACE <db_password> WITH YOUR REAL PASSWORD 👇
-const MONGO_URI = "mongodb+srv://admin:password123@cluster0.zkxkenx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// ✅ YOUR CREDENTIALS ARE ADDED HERE
+const MONGO_URI = "mongodb+srv://yahyabaloch:Baloch*123*@cluster0.zkxkenx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected Successfully"))
@@ -29,14 +29,15 @@ app.post('/api/login', async (req, res) => {
 
 // Staff
 app.get('/api/staff', async (req, res) => {
-  const staff = await User.find();
-  // Fetch roles to map colors
-  const roles = await Role.find();
-  const merged = staff.map(u => {
-    const r = roles.find(role => role.name === u.role);
-    return { ...u._doc, roles: r || { name: u.role, color: 'bg-gray-500' } };
-  });
-  res.json(merged);
+  try {
+    const staff = await User.find();
+    const roles = await Role.find();
+    const merged = staff.map(u => {
+      const r = roles.find(role => role.name === u.role);
+      return { ...u._doc, roles: r || { name: u.role, color: 'bg-gray-500' } };
+    });
+    res.json(merged);
+  } catch (e) { res.json([]); }
 });
 
 app.post('/api/staff', async (req, res) => {
@@ -52,14 +53,15 @@ app.delete('/api/staff/:id', async (req, res) => {
 
 // Tasks
 app.get('/api/tasks', async (req, res) => {
-  const tasks = await Task.find().populate('assigned_to').sort({ created_at: -1 });
-  // Map for frontend compatibility
-  const formatted = tasks.map(t => ({
-    ...t._doc,
-    id: t._id,
-    profiles: t.assigned_to
-  }));
-  res.json(formatted);
+  try {
+    const tasks = await Task.find().populate('assigned_to').sort({ created_at: -1 });
+    const formatted = tasks.map(t => ({
+      ...t._doc,
+      id: t._id,
+      profiles: t.assigned_to
+    }));
+    res.json(formatted);
+  } catch (e) { res.json([]); }
 });
 
 app.post('/api/tasks', async (req, res) => {
@@ -70,13 +72,15 @@ app.post('/api/tasks', async (req, res) => {
 
 // Chat
 app.get('/api/chat', async (req, res) => {
-  const messages = await Message.find().populate('sender_id').sort({ created_at: 1 });
-  const formatted = messages.map(m => ({
-    id: m._id,
-    content: m.content,
-    profiles: m.sender_id
-  }));
-  res.json(formatted);
+  try {
+    const messages = await Message.find().populate('sender_id').sort({ created_at: 1 });
+    const formatted = messages.map(m => ({
+      id: m._id,
+      content: m.content,
+      profiles: m.sender_id
+    }));
+    res.json(formatted);
+  } catch (e) { res.json([]); }
 });
 
 app.post('/api/chat', async (req, res) => {
@@ -85,7 +89,7 @@ app.post('/api/chat', async (req, res) => {
   res.json(msg);
 });
 
-// Seed (Run once to fix everything)
+// SEED (Run this once to create your Admin User)
 app.get('/api/seed', async (req, res) => {
   await User.deleteMany({});
   await Role.deleteMany({});
