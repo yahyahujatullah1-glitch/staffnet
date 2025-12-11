@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Loader2, ArrowRight } from "lucide-react";
@@ -9,13 +9,19 @@ export default function Login() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "" });
 
+  // Check if already logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) navigate("/");
+    });
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      // 1. Authenticate ONLY (Don't fetch profile yet)
       const { data, error } = await supabase.auth.signInWithPassword({
         email: form.email,
         password: form.password,
@@ -24,16 +30,12 @@ export default function Login() {
       if (error) throw error;
 
       if (data.session) {
-        // 2. Force Navigate (Skip profile check for now)
         navigate("/");
       }
     } catch (err: any) {
-      console.error(err);
-      // Clean up error message
-      const msg = err.message === "Database error querying schema" 
-        ? "Server is restarting. Please wait 1 minute." 
-        : err.message;
-      setError(msg);
+      console.error("Login Error:", err);
+      // Show the RAW error from Supabase
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -50,35 +52,29 @@ export default function Login() {
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 text-gray-500" size={18} />
-              <input 
-                type="email" 
-                required
-                value={form.email}
-                onChange={e => setForm({...form, email: e.target.value})}
-                className="w-full pl-10 py-3 bg-surface border border-border rounded-xl text-white focus:border-primary outline-none"
-                placeholder="admin@staffnet.com"
-              />
-            </div>
+            <input 
+              type="email" 
+              required
+              value={form.email}
+              onChange={e => setForm({...form, email: e.target.value})}
+              className="w-full pl-4 py-3 bg-surface border border-border rounded-xl text-white focus:border-primary outline-none"
+              placeholder="admin@staffnet.com"
+            />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-500" size={18} />
-              <input 
-                type="password" 
-                required
-                value={form.password}
-                onChange={e => setForm({...form, password: e.target.value})}
-                className="w-full pl-10 py-3 bg-surface border border-border rounded-xl text-white focus:border-primary outline-none"
-                placeholder="password123"
-              />
-            </div>
+            <input 
+              type="password" 
+              required
+              value={form.password}
+              onChange={e => setForm({...form, password: e.target.value})}
+              className="w-full pl-4 py-3 bg-surface border border-border rounded-xl text-white focus:border-primary outline-none"
+              placeholder="password123"
+            />
           </div>
 
-          {error && <div className="p-3 bg-red-500/10 text-red-500 text-sm rounded-lg text-center">{error}</div>}
+          {error && <div className="p-3 bg-red-500/10 text-red-500 text-sm rounded-lg text-center border border-red-500/20">{error}</div>}
 
           <button 
             type="submit" 
