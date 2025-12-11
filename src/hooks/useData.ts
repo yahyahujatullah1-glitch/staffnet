@@ -1,97 +1,180 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
 
-// --- STAFF ---
+// --- INITIAL DATA (Default Admin) ---
+const INITIAL_DB = {
+  staff: [
+    { 
+      id: '1', 
+      full_name: 'Admin User', 
+      email: 'admin@staffnet.com', 
+      password: 'password123', // <--- Stored locally
+      role: 'Admin', 
+      status: 'Active', 
+      avatar_url: 'https://i.pravatar.cc/150?u=admin' 
+    },
+    { 
+      id: '2', 
+      full_name: 'Sarah Connor', 
+      email: 'sarah@staffnet.com', 
+      password: 'password123',
+      role: 'Manager', 
+      status: 'Active', 
+      avatar_url: 'https://i.pravatar.cc/150?img=5' 
+    }
+  ],
+  tasks: [
+    { id: '101', title: 'Update Brand Guidelines', status: 'In Progress', due_date: '2024-10-26', priority: 'High', assigned_to: '2', proof_url: '', proof_status: 'none' },
+  ],
+  messages: [
+    { id: 1, content: "Welcome to StaffNet! 🚀", sender_id: '1', created_at: new Date().toISOString() }
+  ],
+  logs: [],
+  roles: [
+    { id: 'r1', name: 'Admin', color: 'bg-red-600' },
+    { id: 'r2', name: 'Manager', color: 'bg-orange-500' },
+    { id: 'r3', name: 'Staff', color: 'bg-blue-600' }
+  ]
+};
+
+// --- DATABASE ENGINE ---
+const getDB = () => {
+  const saved = localStorage.getItem('staffnet_db');
+  return saved ? JSON.parse(saved) : INITIAL_DB;
+};
+
+const saveDB = (data: any) => {
+  localStorage.setItem('staffnet_db', JSON.stringify(data));
+  window.dispatchEvent(new Event('db-update'));
+};
+
+// --- AUTH HELPER ---
+export const validateLogin = (email: string, pass: string) => {
+  const db = getDB();
+  const user = db.staff.find((u: any) => u.email === email && u.password === pass);
+  return user;
+};
+
+// --- HOOKS ---
+
 export function useStaff() {
   const [staff, setStaff] = useState<any[]>([]);
-  
-  const fetchStaff = async () => {
-    const { data } = await supabase.from('staff').select('*').order('created_at', { ascending: false });
-    if (data) setStaff(data.map(s => ({ ...s, roles: { name: s.role, color: 'bg-blue-600' } })));
+  const [roles, setRoles] = useState<any[]>([]);
+
+  const refresh = () => {
+    const db = getDB();
+    const merged = db.staff.map((s: any) => {
+      const r = db.roles.find((role: any) => role.name === s.role);
+      return { ...s, roles: r || { name: s.role, color: 'bg-gray-500' } };
+    });
+    setStaff(merged);
+    setRoles(db.roles);
   };
 
   useEffect(() => {
-    fetchStaff();
-    const ch = supabase.channel('staff').on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, fetchStaff).subscribe();
-    return () => { supabase.removeChannel(ch); };
+    refresh();
+    window.addEventListener('db-update', refresh);
+    return () => window.removeEventListener('db-update', refresh);
   }, []);
 
-  const addStaff = async (name: string, email: string, role: string) => {
-    await supabase.from('staff').insert([{ name, email, role, avatar: `https://i.pravatar.cc/150?u=${Date.now()}` }]);
+  // ADD USER (With Password)
+  const addStaff = (name: string, email: string, role: string, password: string) => {
+    const db = getDB();
+    db.staff.push({
+      id: Date.now().toString(),
+      full_name: name,
+      email,
+      password, // Save password
+      role,
+      status: 'Active',
+      avatar_url: `https://i.pravatar.cc/150?u=${Date.now()}`
+    });
+    saveDB(db);
   };
 
-  const fireStaff = async (id: string) => {
-    await supabase.from('staff').delete().eq('id', id);
+  const fireStaff = (id: string) => {
+    const db = getDB();
+    db.staff = db.staff.filter((s: any) => s.id !== id);
+    saveDB(db);
   };
 
-  return { staff, refresh: fetchStaff, addStaff, fireStaff, roles: [] };
+  const createRole = (name: string, color: string) => {
+    const db = getDB();
+    db.roles.push({ id: Date.now().toString(), name, color });
+    saveDB(db);
+  };
+
+  return { staff, roles, refresh, addStaff, fireStaff, createRole };
 }
 
-// --- TASKS ---
 export function useTasks() {
   const [tasks, setTasks] = useState<any[]>([]);
 
-  const fetchTasks = async () => {
-    const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
-    // Fetch staff to map avatars
-    const { data: staff } = await supabase.from('staff').select('*');
-    
-    if (data) {
-      const merged = data.map(t => {
-        const assignee = staff?.find(s => s.id === t.assigned_to);
-        return { ...t, profiles: assignee || { avatar: 'https://i.pravatar.cc/150?u=x' } };
-      });
-      setTasks(merged);
-    }
+  const refresh = () => {
+    const db = getDB();
+    const merged = db.tasks.map((t: any) => ({
+      ...t,
+      profiles: db.staff.find((s: any) => s.id === t.assigned_to)
+    }));
+    setTasks(merged);
   };
 
   useEffect(() => {
-    fetchTasks();
-    const ch = supabase.channel('tasks').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks).subscribe();
-    return () => { supabase.removeChannel(ch); };
+    refresh();
+    window.addEventListener('db-update', refresh);
+    return () => window.removeEventListener('db-update', refresh);
   }, []);
 
-  const addTask = async (title: string, date: string) => {
-    // Assign to first user
-    const { data: users } = await supabase.from('staff').select('id').limit(1);
-    await supabase.from('tasks').insert([{ title, due_date: date, assigned_to: users?.[0]?.id }]);
+  const addTask = (title: string, date: string) => {
+    const db = getDB();
+    db.tasks.unshift({
+      id: Date.now().toString(),
+      title,
+      due_date: date,
+      status: 'Todo',
+      assigned_to: db.staff[0]?.id,
+      proof_status: 'none'
+    });
+    saveDB(db);
   };
 
-  return { tasks, refresh: fetchTasks, addTask };
+  return { tasks, refresh, addTask };
 }
 
-// --- CHAT ---
 export function useChat() {
   const [messages, setMessages] = useState<any[]>([]);
 
-  const fetchMessages = async () => {
-    const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: true });
-    if (data) {
-      setMessages(data.map(m => ({
-        ...m,
-        profiles: { full_name: m.sender_name, avatar_url: m.sender_avatar }
-      })));
-    }
+  const refresh = () => {
+    const db = getDB();
+    const merged = db.messages.map((m: any) => ({
+      ...m,
+      profiles: db.staff.find((s: any) => s.id === m.sender_id) || { full_name: 'Unknown', avatar_url: '' }
+    }));
+    setMessages(merged);
   };
 
   useEffect(() => {
-    fetchMessages();
-    const ch = supabase.channel('messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, fetchMessages).subscribe();
-    return () => { supabase.removeChannel(ch); };
+    refresh();
+    window.addEventListener('db-update', refresh);
+    return () => window.removeEventListener('db-update', refresh);
   }, []);
 
-  const sendMessage = async (text: string) => {
-    await supabase.from('messages').insert([{
+  const sendMessage = (text: string) => {
+    const db = getDB();
+    // Get current logged in user ID
+    const session = JSON.parse(localStorage.getItem('staffnet_user') || '{}');
+    
+    db.messages.push({
+      id: Date.now(),
       content: text,
-      sender_name: 'Admin User',
-      sender_avatar: 'https://i.pravatar.cc/150?u=admin'
-    }]);
+      sender_id: session.id || '1', 
+      created_at: new Date().toISOString()
+    });
+    saveDB(db);
   };
 
   return { messages, sendMessage };
 }
 
-// --- ADMIN ---
 export function useAdmin() {
   return { logs: [] };
 }
