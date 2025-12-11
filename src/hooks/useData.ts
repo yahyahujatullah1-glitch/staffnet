@@ -3,17 +3,33 @@ import { supabase } from '@/lib/supabase';
 
 // --- HELPERS ---
 export const getCurrentUser = () => {
-  return JSON.parse(localStorage.getItem('staffnet_user') || 'null');
+  try {
+    return JSON.parse(localStorage.getItem('staffnet_user') || 'null');
+  } catch (e) { return null; }
 };
 
 export const loginUser = async (email: string, pass: string) => {
   const { data } = await supabase.from('users').select('*').eq('email', email).eq('password', pass).single();
-  return data;
+  // Normalize data before returning
+  if (data) {
+    return {
+      ...data,
+      access_level: data.access_level || 'Staff',
+      job_title: data.job_title || 'Employee'
+    };
+  }
+  return null;
 };
 
-const getAvatarByAccess = (access: string) => {
-  if (access === 'Admin') return 'https://cdn-icons-png.flaticon.com/512/2206/2206368.png';
-  if (access === 'Manager') return 'https://cdn-icons-png.flaticon.com/512/4140/4140047.png';
+const getRoleColor = (level: string) => {
+  if (level === 'Admin') return 'bg-red-600';
+  if (level === 'Manager') return 'bg-orange-500';
+  return 'bg-blue-600';
+};
+
+const getAvatarByAccess = (level: string) => {
+  if (level === 'Admin') return 'https://cdn-icons-png.flaticon.com/512/2206/2206368.png';
+  if (level === 'Manager') return 'https://cdn-icons-png.flaticon.com/512/4140/4140047.png';
   return 'https://cdn-icons-png.flaticon.com/512/3048/3048122.png';
 };
 
@@ -23,7 +39,16 @@ export function useStaff() {
   
   const fetchStaff = async () => {
     const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-    if (data) setStaff(data);
+    if (data) {
+      const formatted = data.map(u => ({
+        ...u,
+        // Fallbacks to prevent crashes
+        access_level: u.access_level || 'Staff',
+        job_title: u.job_title || 'Employee',
+        roleColor: getRoleColor(u.access_level || 'Staff')
+      }));
+      setStaff(formatted);
+    }
   };
 
   useEffect(() => {
@@ -61,7 +86,7 @@ export function useTasks() {
     if (data && users) {
       const merged = data.map(t => {
         const assignee = users.find(u => u.id === t.assigned_to);
-        return { ...t, profiles: assignee || { avatar_url: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' } };
+        return { ...t, profiles: assignee || { avatar_url: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', full_name: 'Unknown' } };
       });
       setTasks(merged);
     }
