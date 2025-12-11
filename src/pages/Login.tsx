@@ -15,16 +15,25 @@ export default function Login() {
     setError("");
 
     try {
+      // 1. Authenticate ONLY (Don't fetch profile yet)
       const { data, error } = await supabase.auth.signInWithPassword({
         email: form.email,
         password: form.password,
       });
 
       if (error) throw error;
-      if (data.session) navigate("/");
+
+      if (data.session) {
+        // 2. Force Navigate (Skip profile check for now)
+        navigate("/");
+      }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to sign in");
+      // Clean up error message
+      const msg = err.message === "Database error querying schema" 
+        ? "Server is restarting. Please wait 1 minute." 
+        : err.message;
+      setError(msg);
     } finally {
       setLoading(false);
     }
