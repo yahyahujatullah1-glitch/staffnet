@@ -1,23 +1,28 @@
 import { useState, useEffect } from "react";
-import { useStaff } from "@/hooks/useData";
+import { useStaff, getCurrentUser } from "@/hooks/useData";
 import { Shield, UserPlus, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useNavigate } from "react-router-dom";
 
 export default function Admin() {
-  const { staff, roles, fireStaff, addStaff, createRole } = useStaff();
-  const [activeTab, setActiveTab] = useState<'staff' | 'create' | 'roles'>('staff');
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'Staff' });
-  const [newRole, setNewRole] = useState({ name: '', color: 'bg-gray-500' });
+  const { staff, fireStaff, addStaff } = useStaff();
+  const [activeTab, setActiveTab] = useState<'staff' | 'create'>('staff');
+  
+  const [newUser, setNewUser] = useState({ 
+    name: '', 
+    email: '', 
+    password: '', 
+    access_level: 'Staff', 
+    job_title: '' 
+  });
+  
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // SECURITY CHECK
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('staffnet_user') || '{}');
-    if (user.role !== 'Admin') {
-      // Redirect or Show Error
-      // navigate("/"); // Optional: Auto redirect
+    const user = getCurrentUser();
+    if (user?.access_level !== 'Admin') {
+      // navigate("/"); 
     } else {
       setIsAdmin(true);
     }
@@ -28,23 +33,16 @@ export default function Admin() {
       <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
         <div className="p-4 bg-red-500/10 rounded-full text-red-500"><Lock size={48} /></div>
         <h2 className="text-2xl font-bold text-white">Access Denied</h2>
-        <p className="text-gray-400">You do not have permission to view this page.</p>
         <Button onClick={() => navigate("/")}>Go Back Home</Button>
       </div>
     );
   }
 
-  const handleCreateUser = (e: any) => {
+  const handleCreateUser = async (e: any) => {
     e.preventDefault();
-    addStaff(newUser.name, newUser.email, newUser.role, newUser.password);
+    await addStaff(newUser.name, newUser.email, newUser.access_level, newUser.job_title, newUser.password);
     alert(`User ${newUser.name} created!`);
-    setNewUser({ name: '', email: '', password: '', role: 'Staff' });
-  };
-
-  const handleCreateRole = (e: any) => {
-    e.preventDefault();
-    createRole(newRole.name, newRole.color);
-    alert("Role created!");
+    setNewUser({ name: '', email: '', password: '', access_level: 'Staff', job_title: '' });
   };
 
   return (
@@ -52,9 +50,8 @@ export default function Admin() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Shield className="text-primary"/> Admin Console</h2>
         <div className="flex gap-2 bg-surface p-1 rounded-lg border border-border">
-          <button onClick={() => setActiveTab('staff')} className={`px-4 py-1.5 rounded-md text-sm font-medium ${activeTab === 'staff' ? 'bg-primary text-white' : 'text-gray-400'}`}>Staff</button>
+          <button onClick={() => setActiveTab('staff')} className={`px-4 py-1.5 rounded-md text-sm font-medium ${activeTab === 'staff' ? 'bg-primary text-white' : 'text-gray-400'}`}>Staff List</button>
           <button onClick={() => setActiveTab('create')} className={`px-4 py-1.5 rounded-md text-sm font-medium ${activeTab === 'create' ? 'bg-primary text-white' : 'text-gray-400'}`}>Add User</button>
-          <button onClick={() => setActiveTab('roles')} className={`px-4 py-1.5 rounded-md text-sm font-medium ${activeTab === 'roles' ? 'bg-primary text-white' : 'text-gray-400'}`}>Roles</button>
         </div>
       </div>
 
@@ -62,7 +59,14 @@ export default function Admin() {
       {activeTab === 'staff' && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <table className="w-full text-left">
-            <thead className="bg-white/5 text-gray-400 border-b border-border"><tr><th className="p-4 text-xs">NAME</th><th className="p-4 text-xs">ROLE</th><th className="p-4 text-xs text-right">ACTION</th></tr></thead>
+            <thead className="bg-white/5 text-gray-400 border-b border-border">
+              <tr>
+                <th className="p-4 text-xs">NAME</th>
+                <th className="p-4 text-xs">JOB TITLE</th>
+                <th className="p-4 text-xs">ACCESS</th>
+                <th className="p-4 text-xs text-right">ACTION</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-border">
               {staff.map(u => (
                 <tr key={u.id} className="hover:bg-white/5">
@@ -70,7 +74,12 @@ export default function Admin() {
                     {u.full_name}
                     <div className="text-xs text-gray-500">{u.email}</div>
                   </td>
-                  <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold text-white ${u.roles.color}`}>{u.roles.name}</span></td>
+                  <td className="p-4 text-sm text-white">{u.job_title}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-xs font-bold text-white ${u.access_level === 'Admin' ? 'bg-red-600' : u.access_level === 'Manager' ? 'bg-orange-500' : 'bg-blue-600'}`}>
+                      {u.access_level}
+                    </span>
+                  </td>
                   <td className="p-4 text-right"><button onClick={() => fireStaff(u.id)} className="text-red-500 hover:bg-red-500/10 p-2 rounded"><Trash2 size={16}/></button></td>
                 </tr>
               ))}
@@ -84,26 +93,29 @@ export default function Admin() {
         <div className="max-w-xl mx-auto bg-surface border border-border rounded-xl p-8">
           <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><UserPlus className="text-primary"/> Create User</h3>
           <form onSubmit={handleCreateUser} className="space-y-4">
-            <div><label className="text-xs text-gray-400 font-bold">Name</label><input required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1" /></div>
+            <div><label className="text-xs text-gray-400 font-bold">Full Name</label><input required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1" /></div>
             <div><label className="text-xs text-gray-400 font-bold">Email</label><input required value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1" /></div>
             <div><label className="text-xs text-gray-400 font-bold">Password</label><input required type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1" /></div>
-            <div><label className="text-xs text-gray-400 font-bold">Role</label><select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1">{roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}</select></div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-400 font-bold">Job Title (Role)</label>
+                <input required placeholder="e.g. Developer" value={newUser.job_title} onChange={e => setNewUser({...newUser, job_title: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 font-bold">Access Level</label>
+                <select value={newUser.access_level} onChange={e => setNewUser({...newUser, access_level: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1">
+                  <option value="Staff">Staff</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Admin">Admin</option>
+                </select>
+              </div>
+            </div>
+
             <Button className="w-full mt-4">Create User</Button>
           </form>
         </div>
       )}
-
-      {/* CREATE ROLE */}
-      {activeTab === 'roles' && (
-        <div className="bg-surface border border-border rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">Create New Role</h3>
-            <form onSubmit={handleCreateRole} className="space-y-4">
-              <div><label className="text-xs text-gray-400 font-bold">Role Name</label><input required value={newRole.name} onChange={e => setNewRole({...newRole, name: e.target.value})} className="w-full bg-background border border-border rounded p-2 text-white mt-1" /></div>
-              <div><label className="text-xs text-gray-400 font-bold">Color</label><div className="flex gap-2 mt-2">{['bg-red-600', 'bg-blue-600', 'bg-green-600', 'bg-yellow-500'].map(c => <button key={c} type="button" onClick={() => setNewRole({...newRole, color: c})} className={`h-8 w-8 rounded-full ${c} ${newRole.color === c ? 'ring-2 ring-white' : ''}`}></button>)}</div></div>
-              <Button className="w-full">Save Role</Button>
-            </form>
-        </div>
-      )}
     </div>
   );
-                                                                                                                 }
+}
