@@ -38,7 +38,7 @@ export default function Chat() {
                   <div className={`max-w-[75%] space-y-1 ${isMe ? 'items-end flex flex-col' : ''}`}>
                     <div className="flex items-baseline gap-2">
                        <span className="text-xs text-gray-400 font-bold">{m.profiles?.full_name}</span>
-                       <span className="text-[10px] bg-white/10 px-1.5 rounded text-gray-500">{m.profiles?.role}</span>
+                       <span className="text-[10px] bg-white/10 px-1.5 rounded text-gray-500">{m.profiles?.job_title}</span>
                     </div>
                     <div className={`p-3 rounded-2xl text-sm ${isMe ? 'bg-primary text-white rounded-tr-none' : 'bg-surface border border-border text-gray-200 rounded-tl-none'}`}>
                       {m.content}
@@ -60,4 +60,4 @@ export default function Chat() {
       </div>
     </div>
   );
-                      }
+}
