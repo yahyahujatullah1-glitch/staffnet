@@ -5,16 +5,20 @@ import { clsx } from "clsx";
 
 export const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
 
-  // Check LocalStorage instead of Supabase Auth
   useEffect(() => {
-    const token = localStorage.getItem('sb-access-token');
-    if (!token) navigate("/login");
+    const stored = localStorage.getItem('staffnet_user');
+    if (!stored) {
+      navigate("/login");
+    } else {
+      setUser(JSON.parse(stored));
+    }
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('sb-access-token');
+    localStorage.removeItem('staffnet_user');
     navigate("/login");
   };
 
@@ -49,10 +53,10 @@ export const Layout = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-surface/50 backdrop-blur-md">
           <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-gray-400"><Menu /></button>
-          <div className="hidden md:block text-sm text-gray-500">Logged in as <span className="text-primary font-bold">Admin</span></div>
+          <div className="hidden md:block text-sm text-gray-500">Logged in as <span className="text-primary font-bold">{user?.full_name || 'User'}</span></div>
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-            <img src="https://i.pravatar.cc/150?u=admin" className="h-9 w-9 rounded-full border border-border" />
+            <img src={user?.avatar_url || "https://i.pravatar.cc/150?u=admin"} className="h-9 w-9 rounded-full border border-border" />
           </div>
         </header>
         <main className="flex-1 overflow-auto p-4 md:p-8 bg-background relative">
