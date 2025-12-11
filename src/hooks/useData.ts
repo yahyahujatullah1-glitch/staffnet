@@ -10,7 +10,6 @@ export const getCurrentUser = () => {
 
 export const loginUser = async (email: string, pass: string) => {
   const { data } = await supabase.from('users').select('*').eq('email', email).eq('password', pass).single();
-  // Normalize data before returning
   if (data) {
     return {
       ...data,
@@ -27,12 +26,6 @@ const getRoleColor = (level: string) => {
   return 'bg-blue-600';
 };
 
-const getAvatarByAccess = (level: string) => {
-  if (level === 'Admin') return 'https://cdn-icons-png.flaticon.com/512/2206/2206368.png';
-  if (level === 'Manager') return 'https://cdn-icons-png.flaticon.com/512/4140/4140047.png';
-  return 'https://cdn-icons-png.flaticon.com/512/3048/3048122.png';
-};
-
 // --- STAFF HOOK ---
 export function useStaff() {
   const [staff, setStaff] = useState<any[]>([]);
@@ -42,7 +35,6 @@ export function useStaff() {
     if (data) {
       const formatted = data.map(u => ({
         ...u,
-        // Fallbacks to prevent crashes
         access_level: u.access_level || 'Staff',
         job_title: u.job_title || 'Employee',
         roleColor: getRoleColor(u.access_level || 'Staff')
@@ -64,7 +56,7 @@ export function useStaff() {
       password,
       access_level,
       job_title,
-      avatar_url: getAvatarByAccess(access_level)
+      avatar_url: `https://i.pravatar.cc/150?u=${Date.now()}`
     }]);
   };
 
@@ -75,7 +67,7 @@ export function useStaff() {
   return { staff, refresh: fetchStaff, addStaff, fireStaff };
 }
 
-// --- TASKS HOOK ---
+// --- TASKS HOOK (FIXED) ---
 export function useTasks() {
   const [tasks, setTasks] = useState<any[]>([]);
 
@@ -86,7 +78,10 @@ export function useTasks() {
     if (data && users) {
       const merged = data.map(t => {
         const assignee = users.find(u => u.id === t.assigned_to);
-        return { ...t, profiles: assignee || { avatar_url: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', full_name: 'Unknown' } };
+        return { 
+          ...t, 
+          profiles: assignee || { avatar_url: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', full_name: 'Unassigned' } 
+        };
       });
       setTasks(merged);
     }
@@ -104,7 +99,8 @@ export function useTasks() {
       description, 
       due_date: date, 
       assigned_to: assignedTo, 
-      status: 'Todo' 
+      status: 'Todo',
+      proof_status: 'none'
     }]);
   };
 
