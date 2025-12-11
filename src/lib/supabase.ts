@@ -1,14 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = "https://riluxnxxndwocrjuwzpd.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpbHV4bnh4bmR3b2NyanV3enBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwOTM1MDEsImV4cCI6MjA4MDY2OTUwMX0.xcLBQijXfbCB3dM1FH4uzo08IPs-trovOy6T_vdpc_o";
+const SUPABASE_URL = "https://voobijqmpshuwypkmihg.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvb2JpanFtcHNodXd5cGttaWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NDgxODIsImV4cCI6MjA4MTAyNDE4Mn0.bto_OPUpMDIB2VEjwJUhsLAAXPjUYpHJGI6HIW_VB6g";
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-  db: {
-    schema: 'public',
-  },
-});
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
