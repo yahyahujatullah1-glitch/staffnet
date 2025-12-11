@@ -1,68 +1,63 @@
 import { useEffect, useState } from 'react';
-
-const API_URL = "/api";
+import { supabase } from '@/lib/supabase';
 
 // --- STAFF ---
 export function useStaff() {
   const [staff, setStaff] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  
   const fetchStaff = async () => {
-    try {
-      const res = await fetch(`${API_URL}/staff`);
-      const data = await res.json();
-      setStaff(data);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+    const { data } = await supabase.from('staff').select('*').order('created_at', { ascending: false });
+    if (data) setStaff(data.map(s => ({ ...s, roles: { name: s.role, color: 'bg-blue-600' } })));
   };
 
-  useEffect(() => { fetchStaff(); }, []);
+  useEffect(() => {
+    fetchStaff();
+    const ch = supabase.channel('staff').on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, fetchStaff).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
   const addStaff = async (name: string, email: string, role: string) => {
-    await fetch(`${API_URL}/staff`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name: name, email, role })
-    });
-    fetchStaff();
+    await supabase.from('staff').insert([{ name, email, role, avatar: `https://i.pravatar.cc/150?u=${Date.now()}` }]);
   };
 
   const fireStaff = async (id: string) => {
-    await fetch(`${API_URL}/staff/${id}`, { method: 'DELETE' });
-    fetchStaff();
+    await supabase.from('staff').delete().eq('id', id);
   };
 
-  return { staff, loading, refresh: fetchStaff, addStaff, fireStaff, roles: [] };
+  return { staff, refresh: fetchStaff, addStaff, fireStaff, roles: [] };
 }
 
 // --- TASKS ---
 export function useTasks() {
   const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const fetchTasks = async () => {
-    const res = await fetch(`${API_URL}/tasks`);
-    const data = await res.json();
-    setTasks(data);
-    setLoading(false);
+    const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+    // Fetch staff to map avatars
+    const { data: staff } = await supabase.from('staff').select('*');
+    
+    if (data) {
+      const merged = data.map(t => {
+        const assignee = staff?.find(s => s.id === t.assigned_to);
+        return { ...t, profiles: assignee || { avatar: 'https://i.pravatar.cc/150?u=x' } };
+      });
+      setTasks(merged);
+    }
   };
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => {
+    fetchTasks();
+    const ch = supabase.channel('tasks').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
   const addTask = async (title: string, date: string) => {
-    // Assign to first user found
-    const res = await fetch(`${API_URL}/staff`);
-    const users = await res.json();
-    
-    await fetch(`${API_URL}/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, due_date: date, assigned_to: users[0]?._id })
-    });
-    fetchTasks();
+    // Assign to first user
+    const { data: users } = await supabase.from('staff').select('id').limit(1);
+    await supabase.from('tasks').insert([{ title, due_date: date, assigned_to: users?.[0]?.id }]);
   };
 
-  return { tasks, loading, refresh: fetchTasks, addTask };
+  return { tasks, refresh: fetchTasks, addTask };
 }
 
 // --- CHAT ---
@@ -70,32 +65,27 @@ export function useChat() {
   const [messages, setMessages] = useState<any[]>([]);
 
   const fetchMessages = async () => {
-    const res = await fetch(`${API_URL}/chat`);
-    const data = await res.json();
-    setMessages(data);
+    const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: true });
+    if (data) {
+      setMessages(data.map(m => ({
+        ...m,
+        profiles: { full_name: m.sender_name, avatar_url: m.sender_avatar }
+      })));
+    }
   };
 
   useEffect(() => {
     fetchMessages();
-    // Poll every 1 second for new messages
-    const interval = setInterval(fetchMessages, 1000);
-    return () => clearInterval(interval);
+    const ch = supabase.channel('messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, fetchMessages).subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const sendMessage = async (text: string) => {
-    // Get Admin ID
-    const res = await fetch(`${API_URL}/staff`);
-    const users = await res.json();
-    const admin = users.find((u: any) => u.email === 'admin@staffnet.com');
-
-    if (admin) {
-      await fetch(`${API_URL}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text, sender_id: admin._id })
-      });
-      fetchMessages();
-    }
+    await supabase.from('messages').insert([{
+      content: text,
+      sender_name: 'Admin User',
+      sender_avatar: 'https://i.pravatar.cc/150?u=admin'
+    }]);
   };
 
   return { messages, sendMessage };
@@ -103,5 +93,5 @@ export function useChat() {
 
 // --- ADMIN ---
 export function useAdmin() {
-    return { logs: [] }; // Placeholder
+  return { logs: [] };
 }
