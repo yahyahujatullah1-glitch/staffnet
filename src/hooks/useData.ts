@@ -9,24 +9,22 @@ export function useStaff() {
 
   const fetchData = async () => {
     try {
-      // Fetch Profiles and join with Roles
-      const { data: s, error: sErr } = await supabase
-        .from('profiles')
-        .select('*, roles(name, color, id)')
-        .order('created_at', { ascending: false });
+      // 1. Fetch Profiles
+      const { data: profiles, error: pErr } = await supabase.from('profiles').select('*');
+      if (pErr) throw pErr;
 
-      if (sErr) throw sErr;
-
-      // Fetch All Roles
-      const { data: r, error: rErr } = await supabase
-        .from('roles')
-        .select('*')
-        .order('name');
-
+      // 2. Fetch Roles
+      const { data: roleList, error: rErr } = await supabase.from('roles').select('*');
       if (rErr) throw rErr;
 
-      if (s) setStaff(s);
-      if (r) setRoles(r);
+      // 3. Manual Join (Fixes Schema Error)
+      const mergedStaff = profiles.map(p => {
+        const role = roleList.find(r => r.id === p.role_id);
+        return { ...p, roles: role || { name: 'Staff', color: 'bg-gray-500' } };
+      });
+
+      setStaff(mergedStaff);
+      setRoles(roleList);
     } catch (err) {
       console.error("Data Load Error:", err);
     } finally {
@@ -36,9 +34,9 @@ export function useStaff() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // ACTIONS
+  // Actions
   const createRole = async (name: string, color: string) => {
-    await supabase.from('roles').insert([{ name, color, permissions: 'read_write' }]);
+    await supabase.from('roles').insert([{ name, color }]);
     fetchData();
   };
 
@@ -53,11 +51,8 @@ export function useStaff() {
   };
 
   const createUser = async (email: string, password: string, name: string, roleId: string) => {
-    // 1. Create Auth User
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
-    
-    // 2. Create Profile linked to Auth ID
     if (data.user) {
       await supabase.from('profiles').insert([{
         id: data.user.id,
@@ -80,20 +75,22 @@ export function useTasks() {
 
   const fetchTasks = async () => {
     try {
-      // Simplified Query: Just get everything, we will filter in UI if needed
-      // Note: We use 'profiles' to get the assignee details
-      const { data, error } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          profiles:assigned_to ( full_name, avatar_url )
-        `)
-        .order('created_at', { ascending: false });
-
+      // Fetch Tasks
+      const { data: taskList, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      if (data) setTasks(data);
+
+      // Fetch Profiles for avatars
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url');
+
+      // Manual Join
+      const mergedTasks = taskList.map(t => {
+        const assignee = profiles?.find(p => p.id === t.assigned_to);
+        return { ...t, profiles: assignee };
+      });
+
+      setTasks(mergedTasks);
     } catch (err) {
-      console.error("Task Fetch Error:", err);
+      console.error("Task Error:", err);
     } finally {
       setLoading(false);
     }
@@ -101,7 +98,6 @@ export function useTasks() {
 
   useEffect(() => { fetchTasks(); }, []);
 
-  // ACTIONS
   const submitProof = async (taskId: string, link: string) => {
     await supabase.from('tasks').update({ proof_url: link, proof_status: 'pending', status: 'Review' }).eq('id', taskId);
     fetchTasks();
@@ -121,16 +117,16 @@ export function useChat() {
   const [messages, setMessages] = useState<any[]>([]);
   
   const fetchMessages = async () => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        profiles:sender_id ( full_name, avatar_url )
-      `)
-      .order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('*').order('created_at', { ascending: true });
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url');
 
-    if (error) console.error("Chat Error:", error);
-    if (data) setMessages(data);
+    if (msgs && profiles) {
+      const merged = msgs.map(m => {
+        const sender = profiles.find(p => p.id === m.sender_id);
+        return { ...m, profiles: sender };
+      });
+      setMessages(merged);
+    }
   };
 
   useEffect(() => {
@@ -142,10 +138,9 @@ export function useChat() {
   }, []);
 
   const sendMessage = async (text: string) => {
-    // Self-Healing User Finder
     let { data: user } = await supabase.from('profiles').select('id').eq('email', 'admin@staffnet.com').single();
     
-    // Fallback
+    // Fallback if Admin missing
     if (!user) {
         const { data: anyUser } = await supabase.from('profiles').select('id').limit(1).single();
         user = anyUser;
@@ -166,7 +161,6 @@ export function useChat() {
 // --- ADMIN HOOK ---
 export function useAdmin() {
     const [logs, setLogs] = useState<any[]>([]);
-    
     useEffect(() => {
         const fetchLogs = async () => {
             const { data } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(20);
@@ -174,6 +168,5 @@ export function useAdmin() {
         };
         fetchLogs();
     }, []);
-
     return { logs };
-}
+  }
