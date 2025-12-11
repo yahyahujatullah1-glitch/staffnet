@@ -27,7 +27,8 @@ export const Layout = () => {
     { name: "Staff", path: "/staff", icon: Users },
     { name: "Tasks", path: "/tasks", icon: CheckSquare },
     { name: "Chat", path: "/chat", icon: MessageSquare },
-    { name: "Admin", path: "/admin", icon: ShieldAlert },
+    // Only show Admin link if role is Admin
+    ...(user?.role === 'Admin' ? [{ name: "Admin", path: "/admin", icon: ShieldAlert }] : []),
   ];
 
   return (
@@ -53,7 +54,7 @@ export const Layout = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-surface/50 backdrop-blur-md">
           <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-gray-400"><Menu /></button>
-          <div className="hidden md:block text-sm text-gray-500">Logged in as <span className="text-primary font-bold">{user?.full_name || 'User'}</span></div>
+          <div className="hidden md:block text-sm text-gray-500">Logged in as <span className="text-primary font-bold">{user?.full_name || 'User'}</span> <span className="text-xs bg-white/10 px-2 py-0.5 rounded ml-2">{user?.role}</span></div>
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
             <img src={user?.avatar_url || "https://i.pravatar.cc/150?u=admin"} className="h-9 w-9 rounded-full border border-border" />
