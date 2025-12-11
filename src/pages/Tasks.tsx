@@ -39,7 +39,6 @@ export default function Tasks() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white">Project Tasks</h2>
-        {/* Only Admin/Manager can add tasks */}
         {canManage && (
           <Button onClick={() => setIsOpen(true)}><Plus size={18} /> New Task</Button>
         )}
@@ -103,7 +102,6 @@ export default function Tasks() {
                 <div className="bg-white/5 p-4 rounded-lg border border-white/10 space-y-3">
                     <div className="flex items-center gap-2 text-blue-400 underline truncate"><ExternalLink size={16}/> <a href={detailTask.proof_url} target="_blank">{detailTask.proof_url}</a></div>
                     
-                    {/* Only Admin/Manager can approve/reject */}
                     {canManage && (
                       <div className="flex gap-2 pt-2">
                           <button onClick={() => { reviewTask(detailTask.id, 'approved'); setDetailTask(null); }} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2"><Check size={16}/> Approve</button>
@@ -113,7 +111,6 @@ export default function Tasks() {
                     {!canManage && <p className="text-xs text-gray-500 text-center">Waiting for manager review.</p>}
                 </div>
               ) : (
-                /* Anyone assigned can submit proof */
                 <form onSubmit={handleSubmitProof} className="flex gap-2">
                     <input value={proofLink} onChange={e => setProofLink(e.target.value)} placeholder="Paste link..." className="flex-1 bg-background border border-border rounded p-2 text-sm text-white" required />
                     <Button variant="secondary">Submit</Button>
@@ -125,4 +122,4 @@ export default function Tasks() {
       )}
     </div>
   );
-        }
+            }
