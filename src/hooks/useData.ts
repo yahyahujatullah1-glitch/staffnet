@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import supabase from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";   // ✅ Correct import for your old file
 
 /* ============================
    🔐 AUTH HELPER
@@ -16,7 +16,7 @@ export const getCurrentUser = () => {
 
 
 /* ============================
-   👥 FETCH USERS (STAFF)
+   👥 STAFF (users table)
 ============================= */
 export function useStaff() {
   const [staff, setStaff] = useState([]);
@@ -50,8 +50,7 @@ export function useStaff() {
 
 
 /* ============================
-   📝 TASK MANAGEMENT HOOK
-   (Matches your real SQL)
+   📝 TASKS MANAGEMENT
 ============================= */
 export function useTasks() {
   const [tasks, setTasks] = useState([]);
@@ -59,8 +58,7 @@ export function useTasks() {
   const fetchTasks = async () => {
     const { data, error } = await supabase
       .from("tasks")
-      .select(
-        `
+      .select(`
         *,
         user:assigned_to (
           id,
@@ -68,8 +66,7 @@ export function useTasks() {
           avatar_url,
           job_title
         )
-      `
-      )
+      `)
       .order("created_at", { ascending: false });
 
     if (!error) setTasks(data);
@@ -134,7 +131,7 @@ export function useTasks() {
 
 
 /* ============================
-   🔑 AUTH LOGIN HOOK
+   🔑 LOGIN SYSTEM
 ============================= */
 export function useAuth() {
   const [loading, setLoading] = useState(false);
@@ -146,7 +143,7 @@ export function useAuth() {
       .from("users")
       .select("*")
       .eq("email", email)
-      .eq("password", pass) // 🔥 Replace with hashed auth later!
+      .eq("password", pass)     // ⚠️ later we replace with real auth
       .single();
 
     setLoading(false);
