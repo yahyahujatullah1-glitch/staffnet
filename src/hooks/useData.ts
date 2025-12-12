@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";   // ✅ Correct import for your old file
+import { supabase } from "@/lib/supabase";   // ✅ Fixed: Named import with curly braces
 
 /* ============================
    🔐 AUTH HELPER
