@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase";
    🔐 AUTH HELPER
 ============================= */
 export const getCurrentUser = () => {
-  // ✅ Fixed: Changed from "user" to "staffnet_user" to match Login.tsx
   const data = localStorage.getItem("staffnet_user");
   if (!data) return null;
   try {
@@ -31,7 +30,7 @@ export function useStaff() {
     if (error) {
       console.error("Error fetching staff:", error);
     } else {
-      console.log("Staff fetched:", data); // Debug log
+      console.log("Staff fetched:", data);
       setStaff(data || []);
     }
   };
@@ -51,7 +50,6 @@ export function useStaff() {
     return () => supabase.removeChannel(channel);
   }, []);
 
-  // ✅ Added functions to add/remove staff
   const addStaff = async (name: string, email: string, access_level: string, job_title: string, password: string) => {
     const { error } = await supabase.from("users").insert({
       full_name: name,
@@ -101,6 +99,7 @@ export function useTasks() {
     if (error) {
       console.error("Error fetching tasks:", error);
     } else {
+      console.log("Tasks fetched:", data);
       setTasks(data || []);
     }
   };
@@ -120,68 +119,58 @@ export function useTasks() {
     return () => supabase.removeChannel(channel);
   }, []);
 
-  /* =====================
-     CREATE TASK
-  ====================== */
-  const addTask = async (
-    title: string,
-    description: string,
-    due_date: string,
-    assigned_to: string
-  ) => {
+  /* CREATE TASK */
+  const addTask = async (title: string, description: string, due_date: string, assigned_to: string) => {
     const { error } = await supabase.from("tasks").insert({
       title,
       description,
       due_date,
-      assigned_to,
       status: "Todo",
-      proof_status: null,   // ✅ FIXED
-      proof_url: null
+      priority: "Normal",
+      proof_url: null,
+      proof_status: "pending",
+      assigned_to
     });
 
     if (error) throw error;
   };
 
-  /* =====================
-     SUBMIT PROOF
-     → moves task to Review
-  ====================== */
+  /* SUBMIT PROOF */
   const submitProof = async (taskId: string, proofUrl: string) => {
     const { error } = await supabase
       .from("tasks")
       .update({
         proof_url: proofUrl,
         proof_status: "pending",
-        status: "Review"
+        status: "Review"  // ✅ Change to Review when proof submitted
       })
       .eq("id", taskId);
 
     if (error) throw error;
   };
 
-  /* =====================
-     MANAGER REVIEW
-  ====================== */
-  const reviewTask = async (
-    taskId: string,
-    proofStatus: "approved" | "rejected"
-  ) => {
-    const update =
-      proofStatus === "approved"
-        ? { proof_status: "approved" }
-        : { proof_status: "rejected", status: "In Progress" };
-
+  /* MANAGER REVIEW */
+  const reviewTask = async (taskId: string, proofStatus: string) => {
+    // ✅ KEY FIX: Change status based on approval/rejection
+    let taskStatus;
+    if (proofStatus === "approved") {
+      taskStatus = "Approved";  // ✅ NEW STATUS for approved tasks
+    } else {
+      taskStatus = "In Progress";  // ✅ Send back to In Progress if rejected
+    }
+    
     const { error } = await supabase
       .from("tasks")
-      .update(update)
+      .update({ 
+        proof_status: proofStatus,
+        status: taskStatus
+      })
       .eq("id", taskId);
 
     if (error) throw error;
   };
 
-  /* =====================
-     UPDATE TASK STATUS
-  ====================== */
+  /* UPDATE TASK STATUS */
   const updateTaskStatus = async (taskId: string, status: string) => {
     const { error } = await supabase
       .from("tasks")
@@ -191,14 +180,10 @@ export function useTasks() {
     if (error) throw error;
   };
 
-  return {
-    tasks,
-    addTask,
-    submitProof,
-    reviewTask,
-    updateTaskStatus
-  };
+  return { tasks, addTask, submitProof, reviewTask, updateTaskStatus };
 }
+
+
 /* ============================
    💬 CHAT SYSTEM
 ============================= */
@@ -277,7 +262,6 @@ export function useAuth() {
 
     if (error || !data) return null;
 
-    // ✅ Fixed: Changed from "user" to "staffnet_user"
     localStorage.setItem("staffnet_user", JSON.stringify(data));
     return data;
   };
@@ -290,7 +274,6 @@ export function useAuth() {
   return { loginUser, logout, loading };
 }
 
-// ✅ Export loginUser as standalone function for Login.tsx
 export const loginUser = async (email: string, password: string) => {
   const { data, error } = await supabase
     .from("users")
