@@ -154,9 +154,9 @@ export function useTasks() {
     // ✅ KEY FIX: Change status based on approval/rejection
     let taskStatus;
     if (proofStatus === "approved") {
-      taskStatus = "Approved";  // ✅ NEW STATUS for approved tasks
+      taskStatus = "Approved";  // ✅ Status becomes Approved
     } else {
-      taskStatus = "In Progress";  // ✅ Send back to In Progress if rejected
+      taskStatus = "Rejected";  // ✅ NEW: Use "Rejected" instead of "In Progress"
     }
     
     const { error } = await supabase
@@ -167,7 +167,10 @@ export function useTasks() {
       })
       .eq("id", taskId);
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error reviewing task:", error);
+      throw error;
+    }
   };
 
   /* UPDATE TASK STATUS */
