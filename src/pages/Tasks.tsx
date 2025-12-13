@@ -361,8 +361,7 @@ export default function Tasks() {
 
             {/* Mark as Done - Only after proof approved */}
             {detailTask.assigned_to === currentUser?.id && 
-             detailTask.status === "In Progress" && 
-             detailTask.proof_url && 
+             detailTask.status === "Review" && 
              detailTask.proof_status === "approved" && (
               <div className="border-t border-border pt-4">
                 <button
@@ -434,10 +433,15 @@ export default function Tasks() {
                   )}
                 </div>
               ) : (
-                // No proof yet
+                // No proof yet OR proof was rejected
                 detailTask.assigned_to === currentUser?.id ? (
-                  detailTask.status === "In Progress" ? (
+                  detailTask.status === "In Progress" || (detailTask.status === "In Progress" && detailTask.proof_status === "rejected") ? (
                     <form onSubmit={handleSubmitProof} className="space-y-3">
+                      {detailTask.proof_status === "rejected" && (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-2 rounded text-sm mb-2">
+                          Previous proof was rejected. Please submit a new proof link.
+                        </div>
+                      )}
                       <input
                         value={proofLink}
                         onChange={(e) => setProofLink(e.target.value)}
@@ -447,12 +451,12 @@ export default function Tasks() {
                       />
 
                       <Button className="w-full" disabled={loading}>
-                        {loading ? "Submitting..." : "Submit Proof for Review"}
+                        {loading ? "Submitting..." : detailTask.proof_status === "rejected" ? "Resubmit Proof" : "Submit Proof for Review"}
                       </Button>
                     </form>
                   ) : (
                     <div className="bg-white/5 p-4 rounded-lg border border-white/10 text-center text-gray-400 text-sm">
-                      Start the task to submit proof of work.
+                      {detailTask.status === "Todo" ? "Start the task to submit proof of work." : "Complete your work and submit proof."}
                     </div>
                   )
                 ) : (
@@ -467,4 +471,4 @@ export default function Tasks() {
       )}
     </div>
   );
-      }
+              }
