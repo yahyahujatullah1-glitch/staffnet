@@ -143,7 +143,8 @@ export function useTasks() {
       .from("tasks")
       .update({
         proof_url: proofUrl,
-        proof_status: "pending"
+        proof_status: "pending",
+        status: "Review"  // ✅ Change task status to Review when proof submitted
       })
       .eq("id", taskId);
 
@@ -151,10 +152,17 @@ export function useTasks() {
   };
 
   /* MANAGER REVIEW */
-  const reviewTask = async (taskId: string, status: string) => {
+  const reviewTask = async (taskId: string, proofStatus: string) => {
+    // ✅ When approved, keep status as Review (staff will mark Done)
+    // ✅ When rejected, send back to In Progress
+    const taskStatus = proofStatus === "approved" ? "Review" : "In Progress";
+    
     const { error } = await supabase
       .from("tasks")
-      .update({ proof_status: status })
+      .update({ 
+        proof_status: proofStatus,
+        status: taskStatus
+      })
       .eq("id", taskId);
 
     if (error) throw error;
