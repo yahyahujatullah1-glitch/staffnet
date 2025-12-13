@@ -160,7 +160,17 @@ export function useTasks() {
     if (error) throw error;
   };
 
-  return { tasks, addTask, submitProof, reviewTask };
+  /* UPDATE TASK STATUS */
+  const updateTaskStatus = async (taskId: string, status: string) => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status })
+      .eq("id", taskId);
+
+    if (error) throw error;
+  };
+
+  return { tasks, addTask, submitProof, reviewTask, updateTaskStatus };
 }
 
 
