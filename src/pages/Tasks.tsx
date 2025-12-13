@@ -387,24 +387,24 @@ export default function Tasks() {
                   </div>
 
                   {/* Proof Status */}
-                  {detailTask.proof_status === "pending" && (
+                  {detailTask.proof_status === "pending" && detailTask.status === "Review" && (
                     <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-2 rounded text-sm">
                       ⏳ Waiting for manager review
                     </div>
                   )}
-                  {detailTask.proof_status === "approved" && (
+                  {detailTask.proof_status === "approved" && detailTask.status === "Approved" && (
                     <div className="bg-green-500/10 border border-green-500/20 text-green-500 p-2 rounded text-sm flex items-center gap-2">
-                      <Check size={16} /> Approved by manager
+                      <Check size={16} /> Approved by manager - Ready to complete
                     </div>
                   )}
-                  {detailTask.proof_status === "rejected" && (
+                  {detailTask.proof_status === "rejected" && detailTask.status === "Rejected" && (
                     <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-2 rounded text-sm flex items-center gap-2">
-                      <X size={16} /> Rejected — Please resubmit with corrections
+                      <X size={16} /> Rejected by manager - Please resubmit with corrections
                     </div>
                   )}
 
-                  {/* Manager Review Buttons */}
-                  {canManage && detailTask.proof_status === "pending" && (
+                  {/* Manager Review Buttons - Only show for pending proofs */}
+                  {canManage && detailTask.proof_status === "pending" && detailTask.status === "Review" && (
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={() => handleReview(detailTask.id, "approved")}
@@ -462,4 +462,4 @@ export default function Tasks() {
       )}
     </div>
   );
-                }
+      }
