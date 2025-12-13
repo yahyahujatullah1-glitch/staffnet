@@ -142,7 +142,7 @@ export function useTasks() {
       .update({
         proof_url: proofUrl,
         proof_status: "pending",
-        status: "Review"  // ✅ Change to Review when proof submitted
+        status: "Review"  // ✅ Automatically changes to Review when proof submitted (skips In Progress)
       })
       .eq("id", taskId);
 
