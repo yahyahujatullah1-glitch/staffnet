@@ -103,12 +103,13 @@ export default function Tasks() {
 
     setLoading(true);
     try {
+      console.log(`Reviewing task ${id} with status: ${status}`); // Debug log
       await reviewTask(id, status);
       setDetailTask(null);
-      showMessage("success", `Task ${status === "approved" ? "approved" : "rejected"}!`);
+      showMessage("success", `Task ${status === "approved" ? "approved" : "rejected"} successfully!`);
     } catch (error) {
       console.error("Error reviewing task:", error);
-      showMessage("error", `Failed to ${status} task`);
+      showMessage("error", `Failed to ${status} task. Check console for details.`);
     } finally {
       setLoading(false);
     }
