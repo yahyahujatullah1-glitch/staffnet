@@ -103,12 +103,13 @@ export default function Tasks() {
 
     setLoading(true);
     try {
+      console.log(`Reviewing task ${id} with status: ${status}`); // Debug log
       await reviewTask(id, status);
       setDetailTask(null);
-      showMessage("success", `Task ${status === "approved" ? "approved" : "rejected"}!`);
+      showMessage("success", `Task ${status === "approved" ? "approved" : "rejected"} successfully!`);
     } catch (error) {
       console.error("Error reviewing task:", error);
-      showMessage("error", `Failed to ${status} task`);
+      showMessage("error", `Failed to ${status} task. Check console for details.`);
     } finally {
       setLoading(false);
     }
@@ -136,8 +137,9 @@ export default function Tasks() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Done": return "bg-green-500";
-      case "Approved": return "bg-green-500";  // ✅ Added Approved status
+      case "Approved": return "bg-green-500";
       case "Review": return "bg-yellow-500";
+      case "Rejected": return "bg-red-500";  // ✅ Added Rejected
       case "In Progress": return "bg-blue-500";
       default: return "bg-gray-500";
     }
@@ -146,8 +148,9 @@ export default function Tasks() {
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case "Done": return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "Approved": return "bg-green-500/20 text-green-400 border-green-500/30";  // ✅ Added
+      case "Approved": return "bg-green-500/20 text-green-400 border-green-500/30";
       case "Review": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "Rejected": return "bg-red-500/20 text-red-400 border-red-500/30";  // ✅ Added Rejected
       case "In Progress": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
       default: return "bg-gray-500/20 text-gray-400 border-gray-500/30";
     }
@@ -174,6 +177,7 @@ export default function Tasks() {
               <option value="Todo">Todo</option>
               <option value="Review">Review</option>
               <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
               <option value="Done">Done</option>
             </select>
             <Filter size={16} className="absolute right-3 top-3 text-gray-400 pointer-events-none" />
@@ -383,24 +387,24 @@ export default function Tasks() {
                   </div>
 
                   {/* Proof Status */}
-                  {detailTask.proof_status === "pending" && (
+                  {detailTask.proof_status === "pending" && detailTask.status === "Review" && (
                     <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-2 rounded text-sm">
                       ⏳ Waiting for manager review
                     </div>
                   )}
-                  {detailTask.proof_status === "approved" && (
+                  {detailTask.proof_status === "approved" && detailTask.status === "Approved" && (
                     <div className="bg-green-500/10 border border-green-500/20 text-green-500 p-2 rounded text-sm flex items-center gap-2">
-                      <Check size={16} /> Approved by manager
+                      <Check size={16} /> Approved by manager - Ready to complete
                     </div>
                   )}
-                  {detailTask.proof_status === "rejected" && (
+                  {detailTask.proof_status === "rejected" && detailTask.status === "Rejected" && (
                     <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-2 rounded text-sm flex items-center gap-2">
-                      <X size={16} /> Rejected — Please resubmit with corrections
+                      <X size={16} /> Rejected by manager - Please resubmit with corrections
                     </div>
                   )}
 
-                  {/* Manager Review Buttons */}
-                  {canManage && detailTask.proof_status === "pending" && (
+                  {/* Manager Review Buttons - Only show for pending proofs */}
+                  {canManage && detailTask.proof_status === "pending" && detailTask.status === "Review" && (
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={() => handleReview(detailTask.id, "approved")}
@@ -422,11 +426,11 @@ export default function Tasks() {
               ) : (
                 // No proof yet OR proof was rejected
                 detailTask.assigned_to === currentUser?.id ? (
-                  detailTask.status === "Todo" || detailTask.status === "In Progress" ? (
+                  detailTask.status === "Todo" || detailTask.status === "Rejected" ? (
                     <form onSubmit={handleSubmitProof} className="space-y-3">
-                      {detailTask.proof_status === "rejected" && (
-                        <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-2 rounded text-sm mb-2">
-                          ❌ Previous proof was rejected. Please submit a new proof link.
+                      {detailTask.status === "Rejected" && (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-2 rounded text-sm mb-2 flex items-center gap-2">
+                          <X size={16} /> <span>Previous proof was rejected. Please submit a corrected proof link.</span>
                         </div>
                       )}
                       <input
@@ -438,12 +442,12 @@ export default function Tasks() {
                       />
 
                       <Button className="w-full" disabled={loading}>
-                        {loading ? "Submitting..." : detailTask.proof_status === "rejected" ? "Resubmit Proof" : "Submit Proof for Review"}
+                        {loading ? "Submitting..." : detailTask.status === "Rejected" ? "Resubmit Proof" : "Submit Proof for Review"}
                       </Button>
                     </form>
                   ) : (
                     <div className="bg-white/5 p-4 rounded-lg border border-white/10 text-center text-gray-400 text-sm">
-                      Complete your work and submit proof.
+                      {detailTask.status === "Approved" ? "Proof approved! Mark task as complete above." : "Waiting for your proof submission."}
                     </div>
                   )
                 ) : (
@@ -458,4 +462,4 @@ export default function Tasks() {
       )}
     </div>
   );
-            }
+              }
